@@ -20,7 +20,6 @@
 //= require ../../../vendor/assets/javascripts/thorax.model
 //= require ../../../vendor/assets/javascripts/thorax.collection
 //= require ../../../vendor/assets/javascripts/thorax.helpers
-//= require ../../../vendor/assets/javascripts/thorax.bind
 //= require ../../../vendor/assets/javascripts/thorax.view-controller
 //= require ../../../vendor/assets/javascripts/thorax.loading
 //= require_tree ./templates

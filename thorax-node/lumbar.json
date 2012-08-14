@@ -43,10 +43,6 @@
           "global": true
         },
         {
-          "src": "js/lib/thorax.bind.js",
-          "global": true
-        },
-        {
           "src": "js/lib/thorax.form.js",
           "global": true
         },
