@@ -22,7 +22,7 @@
     Thorax = root.Thorax = {};
   }
 
-  Thorax.VERSION = '0.0.1';
+  Thorax.VERSION = '2.0.0b1';
 
   var handlebarsExtension = 'handlebars',
       handlebarsExtensionRegExp = new RegExp('\\.' + handlebarsExtension + '$'),
@@ -178,7 +178,7 @@
       object[cacheName] = {};
       object[methodName] = function(name, value, ignoreErrors) {
         if (!value) {
-          return registryGet(object, '_views', name, ignoreErrors);
+          return registryGet(object, cacheName, name, ignoreErrors);
         } else {
           if (value.cid && !value.name) {
             value.name = name;
@@ -344,7 +344,7 @@
   
   Handlebars.registerHelper('template', function(name, options) {
     var context = _.extend({}, this, options ? options.hash : {});
-    var output = Handlebars.View.prototype.renderTemplate.call(this._view, name, context);
+    var output = Thorax.View.prototype.renderTemplate.call(this._view, name, context);
     return new Handlebars.SafeString(output);
   });
 
@@ -478,15 +478,5 @@
     var el = $(this).closest(selector);
     return (el && Thorax._viewsIndexedByCid[el.attr(viewCidAttributeName)]) || false;
   };
-
-  //contain a result set to a given view
-  $.fn.filterToView = function(view) {
-    return this.not(function() {
-      var parents = $(this).parents('[' + viewCidAttributeName + ']');
-      return _.any(parents, function(parent) {
-        return parent.getAttribute(viewCidAttributeName) != view.cid;
-      });
-    });
-  };
-
+  
 })();

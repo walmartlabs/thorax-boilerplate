@@ -1,5 +1,5 @@
 (function() {
-
+  
   var root = this,
       Backbone = root.Backbone,
       Thorax = root.Thorax,
