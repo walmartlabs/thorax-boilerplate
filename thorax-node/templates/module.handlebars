@@ -1,8 +1,0 @@
-{{{scope}}} = (function() {
-  var module = {exports: {}};
-  var exports = module.exports;
-  {{^isTopNamespace}}Thorax.addModuleMethods(module, {{{name}}});{{/isTopNamespace}}
-  {{yield}}
-  return module.exports;
-}).call(this);
-

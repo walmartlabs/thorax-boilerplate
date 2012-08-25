@@ -13470,7 +13470,7 @@ Handlebars.template = Handlebars.VM.template;
     Thorax = root.Thorax = {};
   }
 
-  Thorax.VERSION = '0.0.1';
+  Thorax.VERSION = '2.0.0b1';
 
   var handlebarsExtension = 'handlebars',
       handlebarsExtensionRegExp = new RegExp('\\.' + handlebarsExtension + '$'),
@@ -13480,44 +13480,46 @@ Handlebars.template = Handlebars.VM.template;
       viewHelperAttributeName = 'data-view-helper',
       elementPlaceholderAttributeName = 'data-element-tmp';
 
-  //registry
-  function registryGet(object, type, name, ignoreErrors) {
-    if (!object[type][name] && !ignoreErrors) {
-      throw new Error(type + ': ' + name + ' does not exist.');
-    } else {
-      return object[type][name];
-    }
-  }
-
   _.extend(Thorax, {
     templatePathPrefix: '',
     //view instances
     _viewsIndexedByCid: {},
-    _templates: {},
-    template: function(name, value, ignoreErrors) {
-      var pathPrefix = Thorax.templatePathPrefix;
-      //append templatePathPrefix if getting
-      if (!value) {
-        name = pathPrefix + name;
-      }
-      //always remove handlebars extension wether setting or getting
-      name = name.replace(handlebarsExtensionRegExp, '');
-      //append the template path prefix if it is missing
-      if (pathPrefix && pathPrefix.length && name && name.substr(0, pathPrefix.length) !== pathPrefix) {
-        name = pathPrefix + name;
-      }
-      if (!value) {
-        return registryGet(this, '_templates', name, ignoreErrors);
-      } else {
-        return Thorax._templates[name] = typeof value === 'string' ? Handlebars.compile(value) : value;
-      }
-    }
+    templates: {},
+    Views: {}
   });
 
   Thorax.Util = {
+    createRegistryWrapper: function(klass, hash) {
+      var $super = klass.extend;
+      klass.extend = function() {
+        var child = $super.apply(this, arguments);
+        if (child.prototype.name) {
+          hash[child.prototype.name] = child;
+        }
+        return child;
+      };
+    },
+    registryGet: function(object, type, name, ignoreErrors) {
+      if (type === 'templates') {
+        //append the template path prefix if it is missing
+        var pathPrefix = Thorax.templatePathPrefix;
+        if (pathPrefix && pathPrefix.length && name && name.substr(0, pathPrefix.length) !== pathPrefix) {
+          name = pathPrefix + name;
+        }
+      }
+      if (!object[type][name] && !ignoreErrors) {
+        throw new Error(type + ': ' + name + ' does not exist.');
+      } else {
+        var value = object[type][name];
+        if (type === 'templates' && typeof value === 'string') {
+          value = object[type][name] = Handlebars.compile(value);
+        }
+        return value;
+      }
+    },
     getViewInstance: function(name, attributes) {
       if (typeof name === 'string') {
-        var klass = Thorax.view(name);
+        var klass = Thorax.Util.registryGet(Thorax, 'Views', name, false);
         return klass.cid ? _.extend(klass, attributes || {}) : new klass(attributes);
       } else if (typeof name === 'function') {
         return new name(attributes);
@@ -13621,26 +13623,6 @@ Handlebars.template = Handlebars.VM.template;
         htmlAttributes.id = options.id;
       }
       return htmlAttributes;
-    },
-    createRegistry: function(object, cacheName, methodName, klassName) {
-      object[cacheName] = {};
-      object[methodName] = function(name, value, ignoreErrors) {
-        if (!value) {
-          return registryGet(object, '_views', name, ignoreErrors);
-        } else {
-          if (value.cid && !value.name) {
-            value.name = name;
-            return object[cacheName][name] = value;
-          } else {
-            if (!value.prototype) {
-              value = object[klassName].extend(value);
-            }
-            value.name = name;
-            value.prototype.name = name;
-            return object[cacheName][name] = value;
-          }
-        }
-      }
     }
   };
 
@@ -13659,7 +13641,7 @@ Handlebars.template = Handlebars.VM.template;
         this.template = Handlebars.compile(this.template);
       } else if (this.name && !this.template) {
         //fetch the template 
-        this.template = Thorax.template(this.name, null, true);
+        this.template = Thorax.Util.registryGet(Thorax, 'templates', this.name, true);
       }
     },
   
@@ -13701,7 +13683,7 @@ Handlebars.template = Handlebars.VM.template;
         if (!this.template) {
           //if the name was set after the view was created try one more time to fetch a template
           if (this.name) {
-            this.template = Thorax.template(this.name, null, true);
+            this.template = Thorax.Util.registryGet(Thorax, 'templates', this.name, true);
           }
           if (!this.template) {
             throw new Error('View ' + (this.name || this.cid) + '.render() was called with no content and no template set on the view.');
@@ -13749,7 +13731,7 @@ Handlebars.template = Handlebars.VM.template;
     },
     
     _loadTemplate: function(file, ignoreErrors) {
-      return Thorax.template(file, null, ignoreErrors);
+      return Thorax.Util.registryGet(Thorax, 'templates', file, ignoreErrors);
     },
 
     ensureRendered: function() {
@@ -13767,8 +13749,8 @@ Handlebars.template = Handlebars.VM.template;
       }
     }
   });
-
-  Thorax.Util.createRegistry(Thorax, '_views', 'view', 'View');
+  
+  Thorax.Util.createRegistryWrapper(Thorax.View, Thorax.Views);
 
   //helpers
   Handlebars.registerHelper('super', function() {
@@ -13779,7 +13761,7 @@ Handlebars.template = Handlebars.VM.template;
         if (!parent.name) {
           throw new Error('Cannot use super helper when parent has no name or template.');
         }
-        template = Thorax.template(parent.name);
+        template = Thorax.Util.registryGet(Thorax, 'templates', parent.name, false);
       }
       if (typeof template === 'string') {
         template = Handlebars.compile(template);
@@ -13792,7 +13774,7 @@ Handlebars.template = Handlebars.VM.template;
   
   Handlebars.registerHelper('template', function(name, options) {
     var context = _.extend({}, this, options ? options.hash : {});
-    var output = Handlebars.View.prototype.renderTemplate.call(this._view, name, context);
+    var output = Thorax.View.prototype.renderTemplate.call(this._view, name, context);
     return new Handlebars.SafeString(output);
   });
 
@@ -13926,17 +13908,7 @@ Handlebars.template = Handlebars.VM.template;
     var el = $(this).closest(selector);
     return (el && Thorax._viewsIndexedByCid[el.attr(viewCidAttributeName)]) || false;
   };
-
-  //contain a result set to a given view
-  $.fn.filterToView = function(view) {
-    return this.not(function() {
-      var parents = $(this).parents('[' + viewCidAttributeName + ']');
-      return _.any(parents, function(parent) {
-        return parent.getAttribute(viewCidAttributeName) != view.cid;
-      });
-    });
-  };
-
+  
 })();;;
 (function() {
     
@@ -14160,9 +14132,6 @@ Handlebars.template = Handlebars.VM.template;
 
 })();
 ;;
-//require 'thorax'
-//require 'events'
-
 (function() {
 
   var root = this,
@@ -14196,7 +14165,8 @@ Handlebars.template = Handlebars.VM.template;
     }
   });
 
-  Thorax.Util.createRegistry(Thorax, '_models', 'model', 'Model');
+  Thorax.Models = {};
+  Thorax.Util.createRegistryWrapper(Thorax.Model, Thorax.Models);
 
   Thorax.Util.extendConstructor(Thorax, 'View', function($super, options) {
     $super.call(this, options);
@@ -14401,6 +14371,7 @@ Handlebars.template = Handlebars.VM.template;
       ELEMENT_NODE_TYPE = 1;
 
   Thorax.Collection = Backbone.Collection.extend({
+    model: Thorax.Model || Backbone.Model,
     isEmpty: function() {
       if (this.length > 0) {
         return false;
@@ -14426,7 +14397,8 @@ Handlebars.template = Handlebars.VM.template;
     }
   });
   
-  Thorax.Util.createRegistry(Thorax, '_collections', 'collection', 'Collection');
+  Thorax.Collections = {};
+  Thorax.Util.createRegistryWrapper(Thorax.Collection, Thorax.Collections);
 
   function addEvents(target, source) {
     _.each(source, function(callback, eventName) {
@@ -14594,17 +14566,34 @@ Handlebars.template = Handlebars.VM.template;
       ++this._renderCount;
     },
     renderEmpty: function() {
-      var context = (this.emptyContext && this.emptyContext()) || {};
+      var viewOptions = {};
       if (this.options['empty-view']) {
-        var view = Thorax.Util.getViewInstance(this.options['empty-view'], context);
+        if (this.options['empty-context']) {
+          viewOptions.context = _.bind(function() {
+            return (_.isFunction(this.options['empty-context'])
+              ? this.options['empty-context']
+              : this.parent[this.options['empty-context']]
+            ).call(this.parent);
+          }, this);
+        }
+        var view = Thorax.Util.getViewInstance(this.options['empty-view'], viewOptions);
         if (this.options['empty-template']) {
-          view.render(this.renderTemplate(this.options['empty-template'], context));
+          view.render(this.renderTemplate(this.options['empty-template'], viewOptions.context ? viewOptions.context() : {}));
         } else {
           view.render();
         }
         return view;
       } else {
         var emptyTemplate = this.options['empty-template'] || (this.parent.name && this._loadTemplate(this.parent.name + '-empty', true));
+        var context;
+        if (this.options['empty-context']) {
+          context = (_.isFunction(this.options['empty-context'])
+            ? this.options['empty-context']
+            : this.parent[this.options['empty-context']]
+          ).call(this.parent);
+        } else {
+          context = {};
+        }
         return emptyTemplate && this.renderTemplate(emptyTemplate, context);
       }
     },
@@ -14614,8 +14603,13 @@ Handlebars.template = Handlebars.VM.template;
           model: model
         };
         //itemContext deprecated
-        if (this.itemContext) {
-          viewOptions.context = this.itemContext;
+        if (this.options['item-context']) {
+          viewOptions.context = _.bind(function() {
+            return (_.isFunction(this.options['item-context'])
+              ? this.options['item-context']
+              : this.parent[this.options['item-context']]
+            ).call(this.parent, model, i);
+          }, this);
         }
         if (this.options['item-template']) {
           viewOptions.template = this.options['item-template'];
@@ -14628,7 +14622,16 @@ Handlebars.template = Handlebars.VM.template;
         if (!itemTemplate) {
           throw new Error('collection helper in View: ' + (this.parent.name || this.parent.cid) + ' requires an item template.');
         }
-        return this.renderTemplate(itemTemplate, (this.itemContext && this.itemContext(model, i)) || model.attributes);
+        var context;
+        if (this.options['item-context']) {
+          context = (_.isFunction(this.options['item-context'])
+            ? this.options['item-context']
+            : this.parent[this.options['item-context']]
+          ).call(this.parent, model, i);
+        } else {
+          context = model.attributes;
+        }
+        return this.renderTemplate(itemTemplate, context);
       }
     },
     appendEmpty: function() {
@@ -14708,6 +14711,8 @@ Handlebars.template = Handlebars.VM.template;
         'empty-template': view.inverse && view.inverse !== Handlebars.VM.noop ? view.inverse : view.options['empty-template'],
         'item-view': view.options['item-view'],
         'empty-view': view.options['empty-view'],
+        'item-context': view.options['item-context'] || view.parent.itemContext,
+        'empty-context': view.options['empty-context'] || view.parent.emptyContext,
         filter: view.options['filter']
       });
       view._bindCollection(collection);
@@ -14818,7 +14823,7 @@ Handlebars.template = Handlebars.VM.template;
   $(function() {
     $(document).on('click', '[' + callMethodAttributeName + ']', function(event) {
       var target = $(event.target),
-          view = target.view(),
+          view = target.view({helper: false}),
           methodName = target.attr(callMethodAttributeName);
       view[methodName].call(view, event);
     });
@@ -15057,7 +15062,7 @@ Handlebars.template = Handlebars.VM.template;
 })();
 ;;
 (function() {
-
+  
   var root = this,
       Backbone = root.Backbone,
       Thorax = root.Thorax,
@@ -15067,6 +15072,7 @@ Handlebars.template = Handlebars.VM.template;
   //Router
   Thorax.Router = Backbone.Router.extend({
     initialize: function() {
+      Backbone.history || (Backbone.history = new Backbone.History);
       Backbone.history.on('route', onRoute, this);
       //router does not have a built in destroy event
       //but ViewController does
@@ -15083,7 +15089,8 @@ Handlebars.template = Handlebars.VM.template;
     }
   });
 
-  Thorax.Util.createRegistry(Thorax, '_routers', 'router', 'Router');
+  Thorax.Routers = {};
+  Thorax.Util.createRegistryWrapper(Thorax.Router, Thorax.Routers);
 
   function onRoute(router, name) {
     if (this === router) {
@@ -15102,7 +15109,7 @@ Handlebars.template = Handlebars.VM.template;
       //so need to put this here so the template will be picked up
       var layoutTemplate;
       if (this.name) {
-        layoutTemplate = Thorax.template(this.name, null, true);
+        layoutTemplate = Thorax.Util.registryGet(Thorax, 'templates', this.name, true);
       }
       //a template is optional in a layout
       if (output || this[templateAttributeName] || layoutTemplate) {
@@ -15124,7 +15131,7 @@ Handlebars.template = Handlebars.VM.template;
         destroy: true
       }, options || {});
       if (typeof view === 'string') {
-        view = new (Thorax.view(view));
+        view = new (Thorax.Util.registryGet(Thorax, 'Views', view, false));
       }
       this.ensureRendered();
       var oldView = this._view;
@@ -15180,13 +15187,11 @@ Handlebars.template = Handlebars.VM.template;
   Thorax.ViewController = Thorax.LayoutView.extend();
   _.extend(Thorax.ViewController.prototype, Thorax.Router.prototype, {
     initialize: function() {
-      Thorax.setRootObject && Thorax.setRootObject(this);
-
       Thorax.Router.prototype.initialize.call(this);
       //set the ViewController as the view on the parent
       //if a parent was specified
       this.on('route:before', function(router, name) {
-        if (this.parent) {
+        if (this.parent && this.parent.getView) {
           if (this.parent.getView() !== this) {
             this.parent.setView(this, {
               destroy: false
@@ -15195,62 +15200,6 @@ Handlebars.template = Handlebars.VM.template;
         }
       }, this);
       this._bindRoutes();
-    }
-  });
-
-  //Application
-  Thorax.Application = Thorax.ViewController.extend({
-    //registry methods
-    template: Thorax.template,
-    view: Thorax.view,
-    model: Thorax.model,
-    collection: Thorax.collection,
-    router: Thorax.router,
-
-    name: 'application',
-    initialize: function(options) {
-      //ensure backbone history has started
-      Backbone.history || (Backbone.history = new Backbone.History);
-  
-      //"template" method has special meaning on application object
-      //as it is a registry provider
-      if (this.template != Thorax.Application.prototype.template) {
-        this._template = this.template;
-        this.template = Thorax.Application.prototype.template;
-        if (typeof this._template === 'string') {
-          this._template = Handlebars.compile(this._template);
-        }
-      }
-      this.template = Thorax.Application.prototype.template;
-  
-      _.extend(this, options || {}, {
-        LayoutView: Thorax.LayoutView.extend({}),
-        View: Thorax.View.extend({}),
-        Model: Thorax.Model.extend({}),
-        Collection: Thorax.Collection.extend({}),
-        Router: Thorax.Router.extend({}),
-        ViewController: Thorax.ViewController.extend({})
-      });
-  
-      Thorax.ViewController.prototype.initialize.call(this, options);
-    },
-    //model also has special meaning to the Application object
-    //don't bind it as it is the registry function
-    setModel:function(){},
-    render: generateRenderLayout('_template'),
-    start: function(options) {
-      //application and other templates included by the base
-      //application may want to use the link and url helpers
-      //which use hasPushstate, etc. so setup history, then
-      //render, then dispatch
-      if (!Backbone.History.started) {
-        Backbone.history.start(_.extend({
-          silent: true
-        }, options || {}));
-      }
-      this.render();
-      this.trigger('ready', options);
-      Backbone.history.loadUrl();
     }
   });
 
@@ -15265,26 +15214,6 @@ Handlebars.template = Handlebars.VM.template;
     rootObject = obj;
   };
   
-  /**
-   * load:start / load:end handler.
-   *
-   * Generates an load:start event handler that when triggered will
-   * then monitor the associated object for a load:end event. If the
-   * duration between the start and and the end events exceed
-   * `_loadingTimeoutDuration` then the `start` and `end` callbacks
-   * will be triggered at the appropriate times to allow the display
-   * of a loading UI.
-   *
-   * Example:
-   *    object.on('load:start', Thorax.loadHandler(
-   *      function(message, background, object) {
-   *        element.addClass('loading');
-   *      },
-   *      function(background, object) {
-   *        element.removeClass('loading');
-   *      }));
-   *
-   */
   Thorax.loadHandler = function(start, end) {
     return function(message, background, object) {
       var self = this;
@@ -15670,11 +15599,7 @@ Handlebars.template = Handlebars.VM.template;
   
   // Helpers
   
-  Handlebars.registerViewHelper('loading', function(collectionOrModel, view) {
-    if (arguments.length === 1) {
-      view = collectionOrModel;
-      collectionOrModel = false;
-    }
+  Handlebars.registerViewHelper('loading', function(view) {
     _render = view.render;
     view.render = function() {
       if (view.parent.$el.hasClass(view.parent._loadingClassName)) {
@@ -15851,10 +15776,9 @@ Handlebars.template = Handlebars.VM.template;
   return $script
 });;
 Application = (function() {
-  var module = {exports: {}};
-  var exports = module.exports;
-  
-  var lumbarLoader = exports.loader = {
+var module = {exports: {}};
+var exports = module.exports;
+var lumbarLoader = exports.loader = {
   loadPrefix: typeof lumbarLoadPrefix === 'undefined' ? '' : lumbarLoadPrefix,
 
   isLoaded: function(moduleName) {
@@ -16087,76 +16011,63 @@ if (module.exports.loader && module.exports.loader.map && window.Backbone) {
   module.exports.initBackboneLoader();
 }
 ;;
-(function() {
-  var root = this,
-      Backbone = root.Backbone,
-      Thorax = root.Thorax,
-      _start = Backbone.History.prototype.start;
-
-  Backbone.History.prototype.start = function() {
-    //if this is a lumbar app, setup the module loader
-    //this file must be included in the base module
-    module.exports && module.exports.initBackboneLoader && module.exports.initBackboneLoader();
-    return _start.apply(this, arguments);
-  };
-
-  Thorax.addModuleMethods = function(module) {
-    var router;
-    module.router = function(protoProps) {
-      if (router || arguments.length === 0) {
-        return router;
-      }
-      if (!router) {
-        if (protoProps.prototype) {
-          protoProps.prototype.name = module.name;
-          protoProps.prototype.routes = module.routes;
-          protoProps = new protoProps;
-        } else {
-          protoProps.name = module.name;
-          protoProps.routes = module.routes;
-        }
-        return router = new (Thorax.router(module.name, protoProps));
-      }
-    };
-  };
-
-})();;;
+//all templates are assumed to be in the templates directory
 Thorax.templatePathPrefix = 'templates/';
-var Application = window.Application = module.exports = new Thorax.Application(module.exports);
-$(document).ready(function() {
+
+//create the Application object, Application.setView() will
+//place a view inside the {{layout}}
+var Application = window.Application = module.exports = new (Thorax.ViewController.extend(_.extend(module.exports, {
+  //set a name so it will use the applications.handlebars template
+  name: 'application'
+})));
+
+//alias the special hashes for naming consitency
+Application.templates = Thorax.templates;
+Application.Views = Thorax.Views;
+Application.Models = Thorax.Models;
+Application.Collections = Thorax.Collections;
+Application.Routers = Thorax.Routers;
+
+//allows load:end and load:start events to propagate
+//to the application object
+Thorax.setRootObject(Application);
+
+$(function() {
+  //Application and other templates included by the base
+  //Application may want to use the link and url helpers
+  //which use hasPushstate, etc. so setup history, then
+  //render, then dispatch
+  if (!Backbone.History.started) {
+    //initialize the lumbar-loader for backbone, which will
+    //load modules if needed when a route is matched
+    Application.initBackboneLoader();
+    Backbone.history.start(_.extend({
+      pushState: false,
+      root: '/',
+      silent: true
+    }, options || {}));
+  }
+  Application.render();
   $('body').append(Application.el);
-  Application.start({
-    pushState: false,
-    root: '/'
-  });
+  //mimic when a ViewController will trigger the "ready"
+  //event on a view, since this is the top level object
+  //it needs to be triggered manually
+  Application.trigger('ready');
+  Backbone.history.loadUrl();
 });
 ;;
-Application.template('templates/application.handlebars', '{{layout}}');[
-  Application.Router,
-  Application.ViewController
-].forEach(function(klass) {
-  _.extend(klass.prototype, {
-    //your instance methods here
-  });
+Application.templates['templates/application'] = '{{! This template is used by the Application object created\n    created in init.js, calling Application.setView() will\n    place a view where layout is called below. }}\n\n{{layout}}';Application.ViewController = Thorax.ViewController.extend({
+
 });;;
-_.extend(Application.Model.prototype, {
-  //your instance methods here
-});
-;;
-_.extend(Application.Collection.prototype, {
-  //your instance methods here
-});
-;;
-[
-  Application.View,
-  Application.ViewController,
-  Application.LayoutView
-].forEach(function(klass) {
-  _.extend(klass.prototype, {
-    //your instance methods here
-  });
-});
-;;
+Application.Model = Thorax.Model.extend({
+
+});;;
+Application.Collection = Thorax.Collection.extend({
+
+});;;
+Application.View = Thorax.View.extend({
+
+});;;
 /* lumbar module map */
 module.exports.moduleMap({"base":{"css":{"href":"base.css"},"js":"base.js"},"modules":{"hello-world":{"css":{"href":"hello-world.css"},"js":"hello-world.js"}},"routes":{"":"hello-world"}});
 /* ===================================================
@@ -17984,7 +17895,5 @@ module.exports.moduleMap({"base":{"css":{"href":"base.css"},"js":"base.js"},"mod
   })
 
 }(window.jQuery);;;
-
-  return module.exports;
+return module.exports;
 }).call(this);
-

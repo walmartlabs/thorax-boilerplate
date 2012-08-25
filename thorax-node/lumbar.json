@@ -71,13 +71,10 @@
           "src": "js/lib/lumbar-loader-backbone.js"
         },
         {
-          "src": "js/lib/thorax.lumbar.js"
-        },
-        {
           "src": "js/init.js"
         },
         {
-          "src": "js/router.js"
+          "src": "js/view-controller.js"
         },
         {
           "src": "js/model.js"
@@ -116,7 +113,7 @@
       },
       "scripts": [
         {
-          "src": "js/routers/hello-world.js"
+          "src": "js/view-controllers/hello-world.js"
         },
         {
           "src": "js/views/hello-world/index.js"
@@ -130,7 +127,7 @@
     }
   },
   "templates": {
-    "template": "Application.template('{{{name}}}', '{{{data}}}');",
+    "template": "Application.templates['{{{without-extension name}}}'] = '{{{data}}}';",
     "js/init.js": [
       "templates/application.handlebars"
     ],
@@ -148,8 +145,5 @@
     "includes": [
       "nib"
     ]
-  },
-  "scope": {
-    "template": "templates/module.handlebars"
   }
 }

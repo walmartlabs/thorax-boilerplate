@@ -23,7 +23,14 @@
 //= require ../../../vendor/assets/javascripts/thorax.view-controller
 //= require ../../../vendor/assets/javascripts/thorax.loading
 //= require_tree ./templates
-//= require ../../../vendor/assets/javascripts/thorax.handlebars-assets
+//= require ./init.js
+//= require ./model.js
+//= require ./collection.js
+//= require ./view.js
+//= require ./view-controller.js
+//= require_tree ./models
+//= require_tree ./collections
 //= require_tree ./views
-//= require_tree .
+//= require_tree ./view-controllers
+
 

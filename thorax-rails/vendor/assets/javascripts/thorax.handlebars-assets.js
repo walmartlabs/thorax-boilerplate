@@ -1,1 +1,0 @@
-Thorax._templates = HandlebarsTemplates;

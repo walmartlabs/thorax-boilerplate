@@ -9,6 +9,7 @@
   //Router
   Thorax.Router = Backbone.Router.extend({
     initialize: function() {
+      Backbone.history || (Backbone.history = new Backbone.History);
       Backbone.history.on('route', onRoute, this);
       //router does not have a built in destroy event
       //but ViewController does
@@ -25,7 +26,8 @@
     }
   });
 
-  Thorax.Util.createRegistry(Thorax, '_routers', 'router', 'Router');
+  Thorax.Routers = {};
+  Thorax.Util.createRegistryWrapper(Thorax.Router, Thorax.Routers);
 
   function onRoute(router, name) {
     if (this === router) {
@@ -44,7 +46,7 @@
       //so need to put this here so the template will be picked up
       var layoutTemplate;
       if (this.name) {
-        layoutTemplate = Thorax.template(this.name, null, true);
+        layoutTemplate = Thorax.Util.registryGet(Thorax, 'templates', this.name, true);
       }
       //a template is optional in a layout
       if (output || this[templateAttributeName] || layoutTemplate) {
@@ -66,7 +68,7 @@
         destroy: true
       }, options || {});
       if (typeof view === 'string') {
-        view = new (Thorax.view(view));
+        view = new (Thorax.Util.registryGet(Thorax, 'Views', view, false));
       }
       this.ensureRendered();
       var oldView = this._view;
@@ -122,13 +124,11 @@
   Thorax.ViewController = Thorax.LayoutView.extend();
   _.extend(Thorax.ViewController.prototype, Thorax.Router.prototype, {
     initialize: function() {
-      Thorax.setRootObject && Thorax.setRootObject(this);
-
       Thorax.Router.prototype.initialize.call(this);
       //set the ViewController as the view on the parent
       //if a parent was specified
       this.on('route:before', function(router, name) {
-        if (this.parent) {
+        if (this.parent && this.parent.getView) {
           if (this.parent.getView() !== this) {
             this.parent.setView(this, {
               destroy: false
@@ -137,62 +137,6 @@
         }
       }, this);
       this._bindRoutes();
-    }
-  });
-
-  //Application
-  Thorax.Application = Thorax.ViewController.extend({
-    //registry methods
-    template: Thorax.template,
-    view: Thorax.view,
-    model: Thorax.model,
-    collection: Thorax.collection,
-    router: Thorax.router,
-
-    name: 'application',
-    initialize: function(options) {
-      //ensure backbone history has started
-      Backbone.history || (Backbone.history = new Backbone.History);
-  
-      //"template" method has special meaning on application object
-      //as it is a registry provider
-      if (this.template != Thorax.Application.prototype.template) {
-        this._template = this.template;
-        this.template = Thorax.Application.prototype.template;
-        if (typeof this._template === 'string') {
-          this._template = Handlebars.compile(this._template);
-        }
-      }
-      this.template = Thorax.Application.prototype.template;
-  
-      _.extend(this, options || {}, {
-        LayoutView: Thorax.LayoutView.extend({}),
-        View: Thorax.View.extend({}),
-        Model: Thorax.Model.extend({}),
-        Collection: Thorax.Collection.extend({}),
-        Router: Thorax.Router.extend({}),
-        ViewController: Thorax.ViewController.extend({})
-      });
-  
-      Thorax.ViewController.prototype.initialize.call(this, options);
-    },
-    //model also has special meaning to the Application object
-    //don't bind it as it is the registry function
-    setModel:function(){},
-    render: generateRenderLayout('_template'),
-    start: function(options) {
-      //application and other templates included by the base
-      //application may want to use the link and url helpers
-      //which use hasPushstate, etc. so setup history, then
-      //render, then dispatch
-      if (!Backbone.History.started) {
-        Backbone.history.start(_.extend({
-          silent: true
-        }, options || {}));
-      }
-      this.render();
-      this.trigger('ready', options);
-      Backbone.history.loadUrl();
     }
   });
 
