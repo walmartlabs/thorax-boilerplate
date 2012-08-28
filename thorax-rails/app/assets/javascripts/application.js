@@ -16,12 +16,6 @@
 //= require ../../../vendor/assets/javascripts/underscore
 //= require ../../../vendor/assets/javascripts/backbone
 //= require ../../../vendor/assets/javascripts/thorax
-//= require ../../../vendor/assets/javascripts/thorax.event
-//= require ../../../vendor/assets/javascripts/thorax.model
-//= require ../../../vendor/assets/javascripts/thorax.collection
-//= require ../../../vendor/assets/javascripts/thorax.helpers
-//= require ../../../vendor/assets/javascripts/thorax.view-controller
-//= require ../../../vendor/assets/javascripts/thorax.loading
 //= require_tree ./templates
 //= require ./init.js
 //= require ./model.js

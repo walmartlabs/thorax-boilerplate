@@ -27,34 +27,6 @@
           "global": true
         },
         {
-          "src": "js/lib/thorax.event.js",
-          "global": true
-        },
-        {
-          "src": "js/lib/thorax.model.js",
-          "global": true
-        },
-        {
-          "src": "js/lib/thorax.collection.js",
-          "global": true
-        },
-        {
-          "src": "js/lib/thorax.helpers.js",
-          "global": true
-        },
-        {
-          "src": "js/lib/thorax.form.js",
-          "global": true
-        },
-        {
-          "src": "js/lib/thorax.view-controller.js",
-          "global": true
-        },
-        {
-          "src": "js/lib/thorax.loading.js",
-          "global": true
-        },
-        {
           "src": "js/lib/script.js",
           "global": true
         },
