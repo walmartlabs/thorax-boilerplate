@@ -1,3 +1,23 @@
+// Copyright (c) 2011-2012 @WalmartLabs
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+// 
 (function() {
 
 var Thorax;
@@ -17,7 +37,7 @@ if (typeof exports !== 'undefined') {
   Thorax = this.Thorax = {};
 }
 
-Thorax.VERSION = '2.0.0b2';
+Thorax.VERSION = '2.0.0b3';
 
 var handlebarsExtension = 'handlebars',
     handlebarsExtensionRegExp = new RegExp('\\.' + handlebarsExtension + '$'),
@@ -54,17 +74,30 @@ Thorax.Util = {
         name = pathPrefix + name;
       }
     }
-    if (!object[type][name] && !ignoreErrors) {
+    var target = object[type],
+        value;
+    if (name.match(/\./)) {
+      var bits = name.split(/\./);
+      name = bits.pop();
+      bits.forEach(function(key) {
+        target = target[key];
+      });
+    } else {
+      value = target[name];
+    }
+    if (!target && !ignoreErrors) {
       throw new Error(type + ': ' + name + ' does not exist.');
     } else {
-      var value = object[type][name];
+      var value = target[name];
       if (type === 'templates' && typeof value === 'string') {
-        value = object[type][name] = Handlebars.compile(value);
+        value = target[name] = Handlebars.compile(value);
       }
       return value;
     }
   },
   getViewInstance: function(name, attributes) {
+    attributes['class'] && (attributes.className = attributes['class']);
+    attributes.tag && (attributes.tagName = attributes.tag);
     if (typeof name === 'string') {
       var klass = Thorax.Util.registryGet(Thorax, 'Views', name, false);
       return klass.cid ? _.extend(klass, attributes || {}) : new klass(attributes);
@@ -174,8 +207,19 @@ Thorax.Util = {
 };
 
 Thorax.View = Backbone.View.extend({
-  
+  constructor: function() {
+    var response = Thorax.View.__super__.constructor.apply(this, arguments);
+    
+  if (this.model) {
+    //need to null this.model so setModel will not treat
+    //it as the old model and immediately return
+    var model = this.model;
+    this.model = null;
+    this.setModel(model);
+  }
 
+    return response;
+  },
   _configure: function(options) {
     Thorax._viewsIndexedByCid[this.cid] = this;
     this.children = {};
@@ -539,15 +583,18 @@ _.extend(Thorax.View, {
     return addEvents(this._collectionEvents, callback);
   }
 
+    //accept on({"rendered": handler})
     if (typeof eventName === 'object') {
       _.each(eventName, function(value, key) {
         this.on(key, value);
       }, this);
     } else {
+      //accept on({"rendered": [handler, handler]})
       if (_.isArray(callback)) {
         callback.forEach(function(cb) {
           this._events.push([eventName, cb]);
         }, this);
+      //accept on("rendered", handler)
       } else {
         this._events.push([eventName, callback]);
       }
@@ -593,12 +640,13 @@ _.extend(Thorax.View.prototype, {
   }
 
     if (typeof eventName === 'object') {
-      //events in {name:handler} format
+      //accept on({"rendered": handler})
       if (arguments.length === 1) {
         _.each(eventName, function(value, key) {
           this.on(key, value, this);
         }, this);
       //events on other objects to auto dispose of when view frozen
+      //on(targetObj, 'eventName', handler, context)
       } else if (arguments.length > 1) {
         if (!this._eventArgumentsToUnbind) {
           this._eventArgumentsToUnbind = [];
@@ -608,8 +656,10 @@ _.extend(Thorax.View.prototype, {
         args[0].on.apply(args[0], args.slice(1));
       }
     } else {
+      //accept on("rendered", handler, context)
+      //accept on("click a", handler, context)
       (_.isArray(handler) ? handler : [handler]).forEach(function(handler) {
-        var params = eventParamsFromEventItem(eventName, handler, context || this);
+        var params = eventParamsFromEventItem.call(this, eventName, handler, context || this);
         if (params.type === 'DOM') {
           //will call _addEvent during delegateEvents()
           if (!this._eventsToDelegate) {
@@ -633,20 +683,6 @@ _.extend(Thorax.View.prototype, {
       this.on(events);
     }
     this._eventsToDelegate && this._eventsToDelegate.forEach(this._addEvent, this);
-    //this is a hack so that initialize does not need to
-    //be specified or called by child views
-    if (!this._hasDelegatedEvents) {
-      this._hasDelegatedEvents = true;
-      
-  if (this.model) {
-    //need to null this.model so setModel will not treat
-    //it as the old model and immediately return
-    var model = this.model;
-    this.model = null;
-    this.setModel(model);
-  }
-
-    }
   },
   //params may contain:
   //- name
@@ -688,6 +724,7 @@ var domEvents = [
   'keyup', 'keydown', 'keypress',
   'submit', 'change',
   'focus', 'blur'
+  
 ];
 var domEventRegexp = new RegExp('^(' + domEvents.join('|') + ')');
 
@@ -878,14 +915,19 @@ Thorax.View.on({
 });
 
 Thorax.Util.shouldFetch = function(modelOrCollection, options) {
-  var getValue = Thorax.Util.getValue;
-  var url = (
-    (!modelOrCollection.collection && getValue(modelOrCollection, 'urlRoot')) ||
-    (modelOrCollection.collection && getValue(modelOrCollection.collection, 'url')) ||
-    (!modelOrCollection.collection && modelOrCollection._byCid && modelOrCollection._byId && getValue(modelOrCollection, 'url'))
-  );
-  return url && options.fetch && (
-    typeof modelOrCollection.isPopulated === 'undefined' || !modelOrCollection.isPopulated()
+  var getValue = Thorax.Util.getValue,
+      isCollection = !modelOrCollection.collection && modelOrCollection._byCid && modelOrCollection._byId;
+      url = (
+        (!modelOrCollection.collection && getValue(modelOrCollection, 'urlRoot')) ||
+        (modelOrCollection.collection && getValue(modelOrCollection.collection, 'url')) ||
+        (isCollection && getValue(modelOrCollection, 'url'))
+      );
+  return url && options.fetch && !(
+    (modelOrCollection.isPopulated && modelOrCollection.isPopulated()) ||
+    (isCollection
+      ? Thorax.Collection && Thorax.Collection.prototype.isPopulated.call(modelOrCollection)
+      : Thorax.Model.prototype.isPopulated.call(modelOrCollection)
+    )
   );
 };
 
@@ -2042,9 +2084,13 @@ if (Thorax.Model) {
   })();
 
   Thorax.View.prototype._loadModel = function(model, options) {
-    model.load(function(){
-      options.success && options.success(model);
-    }, options);
+    if (model.load) {
+      model.load(function() {
+        options.success && options.success(model);
+      }, options);
+    } else {
+      model.fetch(options);
+    }
   };
 }
 
@@ -2062,9 +2108,13 @@ if (Thorax.Collection) {
   };
 
   Thorax.CollectionView.prototype._loadCollection = function(collection, options) {
-    collection.load(function(){
-      options.success && options.success(collection);
-    }, options);
+    if (collection.load) {
+      collection.load(function(){
+        options.success && options.success(collection);
+      }, options);
+    } else {
+      collection.fetch(options);
+    }
   };
 }
 
