@@ -1,0 +1,4 @@
+.DS_Store
+node_modules
+thorax-node/public
+thorax-mobile/public
