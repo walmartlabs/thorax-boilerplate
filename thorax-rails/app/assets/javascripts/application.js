@@ -13,9 +13,9 @@
 //= require jquery
 //= require jquery_ujs
 //= require handlebars
-//= require ../../../vendor/assets/javascripts/underscore
-//= require ../../../vendor/assets/javascripts/backbone
-//= require ../../../vendor/assets/javascripts/thorax
+//= require underscore
+//= require backbone
+//= require thorax
 //= require_tree ./templates
 //= require ./init.js
 //= require ./model.js
