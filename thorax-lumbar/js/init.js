@@ -24,17 +24,14 @@ $(function() {
   //Application may want to use the link and url helpers
   //which use hasPushstate, etc. so setup history, then
   //render, then dispatch
-  if (!Backbone.History.started) {
-    //initialize the lumbar-loader for backbone, which will
-    //load modules if needed when a route is matched
-    Application.initBackboneLoader();
-    Backbone.history.start(_.extend({
-      pushState: false,
-      root: '/',
-      silent: true
-    }, options || {}));
-  }
-  Application.render();
+  //initialize the lumbar-loader for backbone, which will
+  //load modules if needed when a route is matched
+  Application.initBackboneLoader();
+  Backbone.history.start({
+    pushState: false,
+    root: '/',
+    silent: true
+  });  Application.render();
   $('body').append(Application.el);
   //mimic when a ViewController will trigger the "ready"
   //event on a view, since this is the top level object

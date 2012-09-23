@@ -20,11 +20,11 @@ $(function() {
   //Application may want to use the link and url helpers
   //which use hasPushstate, etc. so setup history, then
   //render, then dispatch
-  if (!Backbone.History.started) {
-    Backbone.history.start(_.extend({
-      silent: true
-    }, options || {}));
-  }
+  Backbone.history.start({
+    pushState: false,
+    root: '/',
+    silent: true
+  });
   Application.render();
   $('body').append(Application.el);
   //mimic when a ViewController will trigger the "ready"
