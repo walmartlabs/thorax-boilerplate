@@ -12,6 +12,6 @@
     "lumbar": "git://github.com/beastridge/lumbar.git"
   },
   "scripts": {
-    "start": "node index.js --watch --admin"
+    "start": "node index.js --watch"
   }
 }
