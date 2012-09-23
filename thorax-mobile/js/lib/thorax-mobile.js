@@ -52,7 +52,16 @@ _.extend(Thorax, {
   //view instances
   _viewsIndexedByCid: {},
   templates: {},
-  Views: {}
+  //view classes
+  Views: {},
+  //certain error prone pieces of code (on Android only it seems)
+  //are wrapped in a try catch block, then trigger this handler in
+  //the catch, with the name of the function or event that was
+  //trying to be executed. Override this with a custom handler
+  //to debug / log / etc
+  onException: function(name, err) {
+    throw err;
+  }
 });
 
 Thorax.Util = {
@@ -221,6 +230,12 @@ Thorax.View = Backbone.View.extend({
     return response;
   },
   _configure: function(options) {
+    
+  this._modelEvents = [];
+
+  this._collectionEvents = [];
+
+
     Thorax._viewsIndexedByCid[this.cid] = this;
     this.children = {};
     this._renderCount = 0;
@@ -238,17 +253,8 @@ Thorax.View = Backbone.View.extend({
     }
     
   //HelperView will not have mixins so need to check
-  if (this.constructor.mixins) {
-    //mixins
-    for (var i = 0; i < this.constructor.mixins.length; ++i) {
-      applyMixin.call(this, this.constructor.mixins[i]);
-    }
-    if (this.mixins) {
-      for (var i = 0; i < this.mixins.length; ++i) {
-        applyMixin.call(this, this.mixins[i]);
-      }
-    }
-  }
+  this.constructor.mixins && _.each(this.constructor.mixins, applyMixin, this);
+  this.mixins && _.each(this.mixins, applyMixin, this);
 
   //_events not present on HelperView
   this.constructor._events && this.constructor._events.forEach(function(event) {
@@ -259,10 +265,6 @@ Thorax.View = Backbone.View.extend({
       this.on(eventName, handler, this);
     }, this);
   }
-
-  this._modelEvents = [];
-
-  this._collectionEvents = [];
 
   },
 
@@ -326,10 +328,14 @@ Thorax.View = Backbone.View.extend({
   },
 
   _getContext: function(attributes) {
-    return _.extend({}, Thorax.Util.getValue(this, 'context'), attributes || {}, {
+    var data = _.extend({}, Thorax.Util.getValue(this, 'context'), attributes || {}, {
       cid: _.uniqueId('t'),
+      yield: function() {
+        return data.fn && data.fn(data);
+      },
       _view: this
     });
+    return data;
   },
 
   renderTemplate: function(file, data, ignoreErrors) {
@@ -408,7 +414,7 @@ Handlebars.registerHelper('super', function() {
 });
 
 Handlebars.registerHelper('template', function(name, options) {
-  var context = _.extend({}, this, options ? options.hash : {});
+  var context = _.extend({fn: options && options.fn}, this, options ? options.hash : {});
   var output = Thorax.View.prototype.renderTemplate.call(this._view, name, context);
   return new Handlebars.SafeString(output);
 });
@@ -416,8 +422,9 @@ Handlebars.registerHelper('template', function(name, options) {
 //view helper
 var viewTemplateOverrides = {};
 Handlebars.registerHelper('view', function(view, options) {
-  if (!view) {
-    return '';
+  if (arguments.length === 1) {
+    options = view;
+    view = Thorax.View;
   }
   var instance = Thorax.Util.getViewInstance(view, options ? options.hash : {}),
       placeholder_id = instance.cid + '-' + _.uniqueId('placeholder');
@@ -504,6 +511,13 @@ Thorax.View.prototype._appendViews = function(scope, callback) {
         view.ensureRendered();
       }
       $(el).replaceWith(view.el);
+      //TODO: jQuery has trouble with delegateEvents() when
+      //the child dom node is detached then re-attached
+      if (typeof jQuery !== 'undefined' && $ === jQuery) {
+        if (this._renderCount > 1) {
+          view.delegateEvents();
+        }
+      }
       callback && callback(view.el);
     }
   }, this);
@@ -564,8 +578,8 @@ function applyMixin(mixin) {
 }
 
 var _destroy = Thorax.View.prototype.destroy,
-  _on = Thorax.View.prototype.on,
-  _delegateEvents = Thorax.View.prototype.delegateEvents;
+    _on = Thorax.View.prototype.on,
+    _delegateEvents = Thorax.View.prototype.delegateEvents;
 
 
 
@@ -605,6 +619,9 @@ _.extend(Thorax.View, {
 
 _.extend(Thorax.View.prototype, {
   freeze: function(options) {
+    
+  this.model && this._unbindModelEvents();
+
     options = _.defaults(options || {}, {
       dom: true,
       children: true
@@ -629,7 +646,7 @@ _.extend(Thorax.View.prototype, {
     this.freeze();
     return response;
   },
-  on: function(eventName, handler, context) {
+  on: function(eventName, callback, context) {
     
   if (eventName === 'model' && typeof callback === 'object') {
     return addEvents(this._modelEvents, callback);
@@ -640,13 +657,13 @@ _.extend(Thorax.View.prototype, {
   }
 
     if (typeof eventName === 'object') {
-      //accept on({"rendered": handler})
+      //accept on({"rendered": callback})
       if (arguments.length === 1) {
         _.each(eventName, function(value, key) {
           this.on(key, value, this);
         }, this);
       //events on other objects to auto dispose of when view frozen
-      //on(targetObj, 'eventName', handler, context)
+      //on(targetObj, 'eventName', callback, context)
       } else if (arguments.length > 1) {
         if (!this._eventArgumentsToUnbind) {
           this._eventArgumentsToUnbind = [];
@@ -656,10 +673,10 @@ _.extend(Thorax.View.prototype, {
         args[0].on.apply(args[0], args.slice(1));
       }
     } else {
-      //accept on("rendered", handler, context)
-      //accept on("click a", handler, context)
-      (_.isArray(handler) ? handler : [handler]).forEach(function(handler) {
-        var params = eventParamsFromEventItem.call(this, eventName, handler, context || this);
+      //accept on("rendered", callback, context)
+      //accept on("click a", callback, context)
+      (_.isArray(callback) ? callback : [callback]).forEach(function(callback) {
+        var params = eventParamsFromEventItem.call(this, eventName, callback, context || this);
         if (params.type === 'DOM') {
           //will call _addEvent during delegateEvents()
           if (!this._eventsToDelegate) {
@@ -693,10 +710,10 @@ _.extend(Thorax.View.prototype, {
   _addEvent: function(params) {
     if (params.type === 'view') {
       params.name.split(/\s+/).forEach(function(name) {
-        _on.call(this, name, params.handler, params.context || this);
+        _on.call(this, name, bindEventHandler.call(this, 'view-event:' + params.name, params.handler), params.context || this);
       }, this);
     } else {
-      var boundHandler = containHandlerToCurentView(bindEventHandler.call(this, params.handler), this.cid);
+      var boundHandler = containHandlerToCurentView(bindEventHandler.call(this, 'dom-event:' + params.name, params.handler), this.cid);
       if (params.selector) {
         //TODO: determine why collection views and some nested views
         //need defered event delegation
@@ -743,12 +760,18 @@ function containHandlerToCurentView(handler, cid) {
   }
 }
 
-function bindEventHandler(callback) {
+function bindEventHandler(eventName, callback) {
   var method = typeof callback === 'function' ? callback : this[callback];
   if (!method) {
-    throw new Error('Event "' + callback + '" does not exist');
+    throw new Error('Event "' + callback + '" does not exist ' + (this.name || this.cid) + ':' + eventName);
   }
-  return _.bind(method, this);
+  return _.bind(function() {
+    try {
+      method.apply(this, arguments);
+    } catch (e) {
+      Thorax.onException('thorax-exception: ' + (this.name || this.cid) + ':' + eventName, e);
+    }
+  }, this);
 }
 
 function eventParamsFromEventItem(name, handler, context) {
@@ -770,9 +793,7 @@ function eventParamsFromEventItem(name, handler, context) {
 }
 
 var modelCidAttributeName = 'data-model-cid',
-    modelNameAttributeName = 'data-model-name',
-    _freeze = Thorax.View.prototype.freeze,
-    _context = Thorax.View.prototype.context;
+    modelNameAttributeName = 'data-model-name';
 
 Thorax.Model = Backbone.Model.extend({
   isEmpty: function() {
@@ -804,6 +825,8 @@ Thorax.Util.createRegistryWrapper(Thorax.Model, Thorax.Models);
 
 
 
+
+
 Thorax.View._modelEvents = [];
 
 function addEvents(target, source) {
@@ -819,18 +842,8 @@ function addEvents(target, source) {
 }
 
 _.extend(Thorax.View.prototype, {
-  _getContext: function(attributes) {
-    return _.extend({}, Thorax.Util.getValue(this, 'context', this.model), attributes || {}, {
-      cid: _.uniqueId('t'),
-      _view: this
-    });
-  },
   context: function() {
-    return _.extend({}, _context.call(this), (this.model && this.model.attributes) || {});
-  },
-  freeze: function(options) {
-    this.model && this._unbindModelEvents();
-    _freeze.call(this, options);
+    return _.extend({}, this, (this.model && this.model.attributes) || {});
   },
   _bindModelEvents: function() {
     bindModelEvents.call(this, this.constructor._modelEvents);
@@ -895,15 +908,25 @@ _.extend(Thorax.View.prototype, {
   }
 });
 
+function getEventCallback(callback, context) {
+  if (typeof callback === 'function') {
+    return callback;
+  } else {
+    return context[callback];
+  }
+}
+
 function bindModelEvents(events) {
   events.forEach(function(event) {
-    this.model.on(event[0], event[1], event[2] || this);
+    //getEventCallback will resolve if it is a string or a method
+    //and return a method
+    this.model.on(event[0], getEventCallback(event[1], this), event[2] || this);
   }, this);
 }
 
 function unbindModelEvents(events) {
   events.forEach(function(event) {
-    this.model.off(event[0], event[1], event[2] || this);
+    this.model.off(event[0], getEventCallback(event[1], this), event[2] || this);
   }, this);
 }
 
@@ -1001,19 +1024,21 @@ Thorax.Util.createRegistryWrapper(Thorax.Collection, Thorax.Collections);
 
 Thorax.View._collectionEvents = [];
 
-function addEvents(target, source) {
-  _.each(source, function(callback, eventName) {
-    if (_.isArray(callback)) {
-      callback.forEach(function(cb) {
-        target.push([eventName, cb]);
-      }, this);
-    } else {
-      target.push([eventName, callback]);
-    }
-  });
-}
+//collection view is meant to be initialized via the collection
+//helper but can alternatively be initialized programatically
+//constructor function handles this case, no logic except for
+//super() call will be exectued when initialized via collection helper
 
 Thorax.CollectionView = Thorax.HelperView.extend({
+  constructor: function(options) {
+    Thorax.CollectionView.__super__.constructor.call(this, options);
+    //collection helper will initialize this.options, so need to mimic
+    this.options || (this.options = {});
+    this.collection && this.setCollection(this.collection);
+    Thorax.CollectionView._optionNames.forEach(function(optionName) {
+      options[optionName] && (this.options[optionName] = options[optionName]);
+    }, this);
+  },
   _setCollectionOptions: function(collection, options) {
     return _.extend({
       fetch: true,
@@ -1021,7 +1046,7 @@ Thorax.CollectionView = Thorax.HelperView.extend({
       errors: true
     }, options || {});
   },
-  _bindCollection: function(collection) {
+  setCollection: function(collection, options) {
     this.collection = collection;
     if (collection) {
       collection.cid = collection.cid || _.uniqueId('collection');
@@ -1029,7 +1054,7 @@ Thorax.CollectionView = Thorax.HelperView.extend({
       if (collection.name) {
         this.$el.attr(collectionNameAttributeName, collection.name);
       }
-      this.options = this._setCollectionOptions(collection, this.options);
+      this.options = this._setCollectionOptions(collection, _.extend({}, this.options, options));
       bindCollectionEvents.call(this, collection, this.parent._collectionEvents);
       bindCollectionEvents.call(this, collection, this.parent.constructor._collectionEvents);
       collection.trigger('set', collection);
@@ -1039,15 +1064,6 @@ Thorax.CollectionView = Thorax.HelperView.extend({
         //want to trigger built in event handler (render())
         //without triggering event on collection
         this.reset();
-      }
-      //if we rendered with item views model changes will be observed
-      //by the generated item view but if we rendered with templates
-      //then model changes need to be bound as nothing is watching
-      if (!this.options['item-view']) {
-        this.on(collection, 'change', function(model) {
-          this.$el.find('[' + modelCidAttributeName + '="' + model.cid +'"]').remove();
-          this.appendItem(model, collection.indexOf(model));
-        }, this);
       }
     }
     return this;
@@ -1099,7 +1115,8 @@ Thorax.CollectionView = Thorax.HelperView.extend({
         this.$el.prepend(itemElement);
       } else {
         //use last() as appendItem can accept multiple nodes from a template
-        this.$el.find('[' + modelCidAttributeName + '="' + previousModel.cid + '"]').last().after(itemElement);
+        var last = this.$el.find('[' + modelCidAttributeName + '="' + previousModel.cid + '"]').last();
+        last.after(itemElement);
       }
       this._appendViews(null, function(el) {
         el.setAttribute(modelCidAttributeName, model.cid);
@@ -1110,8 +1127,27 @@ Thorax.CollectionView = Thorax.HelperView.extend({
       if (!options.silent) {
         this.parent.trigger('rendered:item', this, this.collection, model, itemElement, index);
       }
+      applyItemVisiblityFilter.call(this, model);
     }
     return itemView;
+  },
+  //updateItem only useful if there is no item view, otherwise
+  //itemView.render() provideds the same functionality
+  updateItem: function(model) {
+    this.removeItem(model);
+    this.appendItem(model);
+  },
+  removeItem: function(model) {
+    var viewEl = this.$('[' + modelCidAttributeName + '="' + model.cid + '"]');
+    if (!viewEl.length) {
+      return false;
+    }
+    var viewCid = viewEl.attr(viewCidAttributeName);
+    if (this.children[viewCid]) {
+      delete this.children[viewCid];
+    }
+    viewEl.remove();
+    return true;
   },
   reset: function() {
     this.render();
@@ -1125,16 +1161,11 @@ Thorax.CollectionView = Thorax.HelperView.extend({
       } else {
         this.$el.removeAttr(collectionEmptyAttributeName);
         this.collection.forEach(function(item, i) {
-          if (!this.options.filter || this.options.filter &&
-            (typeof this.options.filter === 'string'
-                ? this.parent[this.options.filter]
-                : this.options.filter).call(this.parent, item, i)
-            ) {
-            this.appendItem(item, i);
-          }
+          this.appendItem(item, i);
         }, this);
       }
       this.parent.trigger('rendered:collection', this, this.collection);
+      applyVisibilityFilter.call(this);
     }
     ++this._renderCount;
   },
@@ -1217,57 +1248,106 @@ Thorax.CollectionView = Thorax.HelperView.extend({
   }
 });
 
+Thorax.CollectionView._optionNames = [
+  'item-template',
+  'empty-template',
+  'item-view',
+  'empty-view',
+  'item-context',
+  'empty-context',
+  'filter'
+];
+
 function bindCollectionEvents(collection, events) {
   events.forEach(function(event) {
     this.on(collection, event[0], function() {
-      return event[1].apply(this, arguments);
+      //getEventCallback will resolve if it is a string or a method
+      //and return a method
+      var args = _.toArray(arguments);
+      args.unshift(this);
+      return getEventCallback(event[1], this.parent).apply(this.parent, args);
     }, this);
   }, this);
 }
 
+function applyVisibilityFilter() {
+  if (this.options.filter) {
+    this.collection.forEach(function(model) {
+      applyItemVisiblityFilter.call(this, model);
+    }, this);
+  }
+}
+
+function applyItemVisiblityFilter(model) {
+  if (this.options.filter) {
+    $('[' + modelCidAttributeName + '="' + model.cid + '"]')[itemShouldBeVisible.call(this, model) ? 'show' : 'hide']();
+  }
+}
+
+function itemShouldBeVisible(model, i) {
+  return (typeof this.options.filter === 'string'
+    ? this.parent[this.options.filter]
+    : this.options.filter).call(this.parent, model, this.collection.indexOf(model))
+  ;
+}
+
+function handleChangeFromEmptyToNotEmpty() {
+  if (this.collection.length === 1) {
+    if(this.$el.length) {
+      this.$el.removeAttr(collectionEmptyAttributeName);
+      this.$el.empty();
+    }
+  }
+}
+
+function handleChangeFromNotEmptyToEmpty() {
+  if (this.collection.length === 0) {
+    if (this.$el.length) {
+      this.$el.attr(collectionEmptyAttributeName, true);
+      this.appendEmpty();
+    }
+  }
+}
+
 Thorax.View.on({
   collection: {
-    add: function(model, collection) {
-      if (collection.length === 1) {
-        if(this.$el.length) {
-          this.$el.removeAttr(collectionEmptyAttributeName);
-          this.$el.empty();
-        }
+    filter: function(collectionView) {
+      applyVisibilityFilter.call(collectionView);
+    },
+    change: function(collectionView, model) {
+      //if we rendered with item views, model changes will be observed
+      //by the generated item view but if we rendered with templates
+      //then model changes need to be bound as nothing is watching
+      if (!collectionView.options['item-view']) {
+        collectionView.updateItem(model);
       }
-      if (this.$el.length) {
+      applyItemVisiblityFilter.call(collectionView, model);
+    },
+    add: function(collectionView, model, collection) {
+      handleChangeFromEmptyToNotEmpty.call(collectionView);
+      if (collectionView.$el.length) {
         var index = collection.indexOf(model);
-        if (!this.options.filter || this.options.filter &&
-          (typeof this.options.filter === 'string'
-              ? this.parent[this.options.filter]
-              : this.options.filter).call(this.parent, model, index)
-          ) {
-          this.appendItem(model, index);
-        }
+        collectionView.appendItem(model, index);
       }
     },
-    remove: function(model, collection) {
-      this.$el.find('[' + modelCidAttributeName + '="' + model.cid + '"]').remove();
-      for (var cid in this.children) {
-        if (this.children[cid].model && this.children[cid].model.cid === model.cid) {
-          this.children[cid].destroy();
-          delete this.children[cid];
+    remove: function(collectionView, model, collection) {
+      collectionView.$el.find('[' + modelCidAttributeName + '="' + model.cid + '"]').remove();
+      for (var cid in collectionView.children) {
+        if (collectionView.children[cid].model && collectionView.children[cid].model.cid === model.cid) {
+          collectionView.children[cid].destroy();
+          delete collectionView.children[cid];
           break;
         }
       }
-      if (collection.length === 0) {
-        if (this.$el.length) {
-          this.$el.attr(collectionEmptyAttributeName, true);
-          this.appendEmpty();
-        }
-      }
+      handleChangeFromNotEmptyToEmpty.call(collectionView);
     },
-    reset: function(collection) {
-      this.reset();
+    reset: function(collectionView, collection) {
+      collectionView.reset();
     },
-    error: function(message) {
-      if (this.options.errors) {
+    error: function(collectionView, message) {
+      if (collectionView.options.errors) {
+        collectionView.trigger('error', message);
         this.trigger('error', message);
-        this.parent.trigger('error', message);
       }
     }
   }
@@ -1279,16 +1359,15 @@ Handlebars.registerViewHelper('collection', Thorax.CollectionView, function(coll
     collection = this._view.collection;
   }
   if (collection) {
+    //item-view and empty-view may also be passed, but have no defaults
     _.extend(view.options, {
       'item-template': view.template && view.template !== Handlebars.VM.noop ? view.template : view.options['item-template'],
       'empty-template': view.inverse && view.inverse !== Handlebars.VM.noop ? view.inverse : view.options['empty-template'],
-      'item-view': view.options['item-view'],
-      'empty-view': view.options['empty-view'],
       'item-context': view.options['item-context'] || view.parent.itemContext,
       'empty-context': view.options['empty-context'] || view.parent.emptyContext,
       filter: view.options['filter']
     });
-    view._bindCollection(collection);
+    view.setCollection(collection);
   }
 });
 
@@ -1618,15 +1697,21 @@ function resetSubmitState() {
 }
 
 //Router
+function initializeRouter() {
+  Backbone.history || (Backbone.history = new Backbone.History);
+  Backbone.history.on('route', onRoute, this);
+  //router does not have a built in destroy event
+  //but ViewController does
+  this.on('destroyed', function() {
+    Backbone.history.off('route', onRoute, this);
+  });
+}
+
 Thorax.Router = Backbone.Router.extend({
-  initialize: function() {
-    Backbone.history || (Backbone.history = new Backbone.History);
-    Backbone.history.on('route', onRoute, this);
-    //router does not have a built in destroy event
-    //but ViewController does
-    this.on('destroyed', function() {
-      Backbone.history.off('route', onRoute, this);
-    });
+  constructor: function() {
+    var response = Thorax.Router.__super__.constructor.apply(this, arguments);
+    initializeRouter.call(this);
+    return response;
   },
   route: function(route, name, callback) {
     //add a route:before event that is fired before the callback is called
@@ -1681,7 +1766,7 @@ Thorax.LayoutView = Thorax.View.extend({
     if (view == oldView){
       return false;
     }
-    if (options.destroy) {
+    if (options.destroy && view) {
       view._shouldDestroyOnNextSetView = true;
     }
     this.trigger('change:view:start', view, oldView, options);
@@ -1691,9 +1776,11 @@ Thorax.LayoutView = Thorax.View.extend({
       oldView.$el.remove();
     }
     //make sure the view has been rendered at least once
+    view && this._addChild(view);
     view && view.ensureRendered();
     view && getLayoutViewsTargetElement.call(this).appendChild(view.el);
     this._view = view;
+    oldView && (delete this.children[oldView.cid]);
     oldView && oldView._shouldDestroyOnNextSetView && oldView.destroy();
     this._view && this._view.trigger('ready', options);
     this.trigger('change:view:end', view, oldView, options);
@@ -1727,10 +1814,11 @@ function getLayoutViewsTargetElement() {
 }
 
 //ViewController
-Thorax.ViewController = Thorax.LayoutView.extend();
-_.extend(Thorax.ViewController.prototype, Thorax.Router.prototype, {
-  initialize: function() {
-    Thorax.Router.prototype.initialize.call(this);
+Thorax.ViewController = Thorax.LayoutView.extend({
+  constructor: function() {
+    var response = Thorax.ViewController.__super__.constructor.apply(this, arguments);
+    this._bindRoutes();
+    initializeRouter.call(this);
     //set the ViewController as the view on the parent
     //if a parent was specified
     this.on('route:before', function(router, name) {
@@ -1742,9 +1830,10 @@ _.extend(Thorax.ViewController.prototype, Thorax.Router.prototype, {
         }
       }
     }, this);
-    this._bindRoutes();
+    return response;
   }
 });
+_.extend(Thorax.ViewController.prototype, Thorax.Router.prototype);
 
 var loadStart = 'load:start',
     loadEnd = 'load:end',
@@ -1761,8 +1850,12 @@ Thorax.loadHandler = function(start, end) {
     function startLoadTimeout() {
       clearTimeout(self._loadStart.timeout);
       self._loadStart.timeout = setTimeout(function() {
-          self._loadStart.run = true;
-          start.call(self, self._loadStart.message, self._loadStart.background, self._loadStart);
+          try {
+            self._loadStart.run = true;
+            start.call(self, self._loadStart.message, self._loadStart.background, self._loadStart);
+          } catch(e) {
+            Thorax.onException('loadStart', e);
+          }
         },
         loadingTimeout*1000);
     }
@@ -1807,19 +1900,23 @@ Thorax.loadHandler = function(start, end) {
         events.splice(index, 1);
       }
       if (!events.length) {
-        self._loadStart.endTimeout = setTimeout(function(){
-          if (!events.length) {
-            var run = self._loadStart.run;
-
-            if (run) {
-              // Emit the end behavior, but only if there is a paired start
-              end.call(self, self._loadStart.background, self._loadStart);
-              self._loadStart.trigger(loadEnd, self._loadStart);
+        self._loadStart.endTimeout = setTimeout(function() {
+          try {
+            if (!events.length) {
+              var run = self._loadStart.run;
+  
+              if (run) {
+                // Emit the end behavior, but only if there is a paired start
+                end.call(self, self._loadStart.background, self._loadStart);
+                self._loadStart.trigger(loadEnd, self._loadStart);
+              }
+  
+              // If stopping make sure we don't run a start
+              clearTimeout(self._loadStart.timeout);
+              self._loadStart = undefined;
             }
-
-            // If stopping make sure we don't run a start
-            clearTimeout(self._loadStart.timeout);
-            self._loadStart = undefined;
+          } catch(e) {
+            Thorax.onException('loadEnd', e);
           }
         }, loadingEndTimeout * 1000);
       }
@@ -2134,10 +2231,10 @@ Thorax.View.on({
       }),
 
   collection: {
-    'load:start': function(message, background, object) {
+    'load:start': function(collectionView, message, background, object) {
       //this refers to the collection view, we want to trigger on
       //the parent view which originally bound the collection
-      this.parent.trigger(loadStart, message, background, object);
+      this.trigger(loadStart, message, background, object);
     }
   },
   model: {
@@ -2206,6 +2303,11 @@ Thorax.View.on('helper:collection', function(view) {
   }
 });
 
+if (Thorax.CollectionView) {
+  Thorax.CollectionView._optionNames.push('loading-template');
+  Thorax.CollectionView._optionNames.push('loading-view');
+}
+
 
 var minimumScrollYOffset = $.os.android ? 1 : 0;
 
@@ -2263,47 +2365,55 @@ if (isMobile) {
       clickRedRum;
   
   function onTouchStart(event) {
-    if (event.touches.length === 1) {
-      var touch = event.touches[0];
-      start = {x: touch.clientX, y: touch.clientY};
-    } else {
-      start = false;
+    try {
+      if (event.touches.length === 1) {
+        var touch = event.touches[0];
+        start = {x: touch.clientX, y: touch.clientY};
+      } else {
+        start = false;
+      }
+      clickRedRum = false;
+    } catch(e) {
+      Thorax.onException('fast-click start', e);
     }
-    clickRedRum = false;
   }
   
   function onTouchMove() {
-    if (event.touches.length > 1) {
+    if (!event.touches || event.touches.length > 1) {
       start = false;
     }
   }
   
   function onTouchEnd(event) {
-    var touch = event.changedTouches[0];
-    if (start
-        && Math.abs(touch.clientX-start.x) <= TAP_RANGE
-        && Math.abs(touch.clientY-start.y) <= TAP_RANGE) {
-      var target = touch.target;
-  
-      // see if target element or ancestor is disabled as click would not be triggered in this case
-      var disabled = !!($(target).closest('[disabled]').length);
-      if (!disabled) {
-        event = $.Event(Thorax._fastClickEventName, {original: event});
-        $(target).trigger(event);
-        if (!event.defaultPrevented && ( target.control || target.htmlFor )) {
-          if (target.control) {
-            $(target.control).trigger(event);
-          } else {
-            $("#" + target.htmlFor).trigger(event);
+    try {
+      var touch = event.changedTouches[0];
+      if (start
+          && Math.abs(touch.clientX-start.x) <= TAP_RANGE
+          && Math.abs(touch.clientY-start.y) <= TAP_RANGE) {
+        var target = touch.target;
+      
+        // see if target element or ancestor is disabled as click would not be triggered in this case
+        var disabled = !!($(target).closest('[disabled]').length);
+        if (!disabled) {
+          event = $.Event(Thorax._fastClickEventName, {original: event});
+          $(target).trigger(event);
+          if (!event.defaultPrevented && ( target.control || target.htmlFor )) {
+            if (target.control) {
+              $(target.control).trigger(event);
+            } else {
+              $("#" + target.htmlFor).trigger(event);
+            }
           }
+          if (event.defaultPrevented) {
+            // If the fast-click was handled, prevent futher operations
+            clickRedRum = true;
+            event.original.preventDefault();
+            defaultPrevented = true;
+          } 
         }
-        if (event.defaultPrevented) {
-          // If the fast-click was handled, prevent futher operations
-          clickRedRum = true;
-          event.original.preventDefault();
-          defaultPrevented = true;
-        } 
       }
+    } catch(e) {
+      Thorax.onException('fast-click end', e);
     }
   }
   
@@ -2439,6 +2549,7 @@ _.extend(Thorax.View.prototype, {
   }
 });
 
+//TODO: examine if these are still needed
 Thorax.View.on({
   'rendered': fixupTapHighlight,
   'rendered:collection': fixupTapHighlight,
@@ -2448,13 +2559,22 @@ Thorax.View.on({
 
 var _setElement = Thorax.View.prototype.setElement,
     tapHighlightSelector = '[data-tappable=true], a, input, button, select, textarea';
+
 Thorax.View.prototype.setElement = function() {
   var response = _setElement.apply(this, arguments);
   if (!this.noTapHighlight) {
     if (!useNativeHighlight) {
-      this.$el.tapHoldAndEnd(tapHighlightSelector, 
-        _.bind(this._tapHighlightStart, this),
-        _.bind(this._tapHighlightEnd, this));
+      var self = this;
+      function exec(name) {
+        return function() {
+          try {
+            self[name].apply(self, arguments);
+          } catch(e) {
+            Thorax.onException(name, e);
+          }
+        };
+      }
+      this.$el.tapHoldAndEnd(tapHighlightSelector, exec('_tapHighlightStart'), exec('_tapHighlightEnd'));
     }
   }
   return response;
