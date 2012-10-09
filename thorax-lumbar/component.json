@@ -1,0 +1,8 @@
+{
+  "name": "thorax-boilerplate",
+  "version": "1.0.0",
+  "dependencies": {
+    "lumbar-loader": "~1.1",
+    "thorax": "git@github.com:kpdecker/thorax.git"
+  }
+}
