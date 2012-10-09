@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "portscanner": "0.1.2",
-    "lumbar": "git://github.com/beastridge/lumbar.git"
+    "lumbar": "~2.0"
   },
   "scripts": {
     "start": "node index.js --watch --admin"
