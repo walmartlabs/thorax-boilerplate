@@ -1,4 +1,6 @@
 .DS_Store
 node_modules
+components
 thorax-node/public
+thorax-lumbar/public
 thorax-mobile/public
