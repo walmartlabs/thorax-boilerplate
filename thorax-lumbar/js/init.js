@@ -14,6 +14,7 @@ Application.Views = Thorax.Views;
 Application.Models = Thorax.Models;
 Application.Collections = Thorax.Collections;
 Application.Routers = Thorax.Routers;
+Application.Mixins = Thorax.Mixins;
 
 //allows load:end and load:start events to propagate
 //to the application object
