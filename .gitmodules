@@ -4,3 +4,9 @@
 [submodule "thorax-lumbar/components/lumbar-loader"]
 	path = thorax-lumbar/components/lumbar-loader
 	url = git://github.com/walmartlabs/lumbar-loader.git
+[submodule "thorax-mobile/components/thorax"]
+	path = thorax-mobile/components/thorax
+	url = git://github.com/walmartlabs/thorax.git
+[submodule "thorax-mobile/components/lumbar-loader"]
+	path = thorax-mobile/components/lumbar-loader
+	url = git://github.com/walmartlabs/lumbar-loader.git
