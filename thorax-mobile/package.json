@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "portscanner": "0.1.2",
-    "lumbar": "2.0.x"
+    "lumbar": "~2.0.0"
   },
   "scripts": {
     "start": "node index.js --watch"
