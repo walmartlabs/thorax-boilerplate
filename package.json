@@ -1,0 +1,22 @@
+{
+  "name": "thorax-boilerplate",
+  "version": "0.0.1",
+  "description": "Handlebars + Backbone",
+  "keywords": ["backbone", "handlebars", "Thorax"],
+  "homepage": "http://thoraxjs.org",
+  "authors": [
+    "Ryan Eastridge <ryan@eastridge.xxx> (http://eastridge.xxx)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/walmartlabs/thorax-boilerplate.git"
+  },
+  "engines": {
+    "node": ">=0.4.7"
+  },
+  "devDependencies": {
+    "jake": "~0.5",
+    "async": "0.1.x",
+    "underscore": "1.4.2"
+  }
+}

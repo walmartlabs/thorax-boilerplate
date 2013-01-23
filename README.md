@@ -2,12 +2,7 @@ README is a work in progress.
 
 # Thorax Boilerplate Projects
 
-[Thorax](http://thoraxjs.org/) boilerplate projects. Download zipped versions for:
-
-- [Standalone / HTML Only](https://github.com/downloads/walmartlabs/thorax/thorax-html.zip)
-- [Thorax + Lumbar for Node](https://github.com/downloads/walmartlabs/thorax/thorax-node.zip)
-- [Mobile](https://github.com/downloads/walmartlabs/thorax/thorax-mobile.zip)
-- [Rails](https://github.com/downloads/walmartlabs/thorax/thorax-rails.zip)
+[Thorax](http://thoraxjs.org/) boilerplate projects.
 
 All projects include [Bootstrap](http://twitter.github.com/bootstrap/). All projects include [jQuery](http://jquery.com) except the mobile project which uses [Zepto](http://zeptojs.com).
 

@@ -1,0 +1,97 @@
+
+
+Started GET "/" for 127.0.0.1 at 2012-11-30 15:43:53 -0800
+Connecting to database specified by database.yml
+Processing by HelloWorldController#index as HTML
+  Rendered hello_world/index.html.erb within layouts/application (23.7ms)
+Compiled bootstrap.css  (0ms)  (pid 24726)
+Compiled hello_world.css  (8ms)  (pid 24726)
+Compiled application.css  (29ms)  (pid 24726)
+Compiled jquery.js  (2ms)  (pid 24726)
+Compiled jquery_ujs.js  (0ms)  (pid 24726)
+Compiled handlebars.js  (0ms)  (pid 24726)
+Compiled underscore.js  (0ms)  (pid 24726)
+Compiled backbone.js  (0ms)  (pid 24726)
+Compiled thorax.js  (1ms)  (pid 24726)
+Compiled templates/hello-world/index.js  (74ms)  (pid 24726)
+Compiled init.js  (0ms)  (pid 24726)
+Compiled model.js  (0ms)  (pid 24726)
+Compiled collection.js  (0ms)  (pid 24726)
+Compiled view.js  (0ms)  (pid 24726)
+Compiled view-controller.js  (0ms)  (pid 24726)
+Compiled views/hello-world/index.js  (0ms)  (pid 24726)
+Compiled view-controllers/hello-world.js  (0ms)  (pid 24726)
+Compiled application.js  (217ms)  (pid 24726)
+Completed 200 OK in 371ms (Views: 370.8ms | ActiveRecord: 0.0ms)
+
+
+Started GET "/assets/handlebars.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /handlebars.js - 200 OK (6ms)
+
+
+Started GET "/assets/hello_world.css?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /hello_world.css - 200 OK (2ms)
+
+
+Started GET "/assets/bootstrap.css?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /bootstrap.css - 200 OK (5ms)
+
+
+Started GET "/assets/jquery.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /jquery.js - 200 OK (4ms)
+
+
+Started GET "/assets/jquery_ujs.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /jquery_ujs.js - 200 OK (3ms)
+
+
+Started GET "/assets/application.css?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /application.css - 200 OK (13ms)
+
+
+Started GET "/assets/underscore.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /underscore.js - 200 OK (2ms)
+
+
+Started GET "/assets/backbone.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /backbone.js - 200 OK (6ms)
+
+
+Started GET "/assets/thorax.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /thorax.js - 200 OK (3ms)
+
+
+Started GET "/assets/templates/hello-world/index.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /templates/hello-world/index.js - 200 OK (3ms)
+
+
+Started GET "/assets/init.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /init.js - 200 OK (2ms)
+
+
+Started GET "/assets/model.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /model.js - 200 OK (2ms)
+
+
+Started GET "/assets/collection.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /collection.js - 200 OK (4ms)
+
+
+Started GET "/assets/view.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /view.js - 200 OK (2ms)
+
+
+Started GET "/assets/view-controller.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /view-controller.js - 200 OK (5ms)
+
+
+Started GET "/assets/views/hello-world/index.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /views/hello-world/index.js - 200 OK (3ms)
+
+
+Started GET "/assets/view-controllers/hello-world.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /view-controllers/hello-world.js - 200 OK (2ms)
+
+
+Started GET "/assets/application.js?body=1" for 127.0.0.1 at 2012-11-30 15:43:54 -0800
+Served asset /application.js - 200 OK (20ms)

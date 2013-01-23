@@ -1,0 +1,17 @@
+{{! This template is used by the Application object created
+    created in init.js, calling Application.setView() will
+    place a view where layout is called below. }}
+
+<div class="flex">
+  <div class="header">
+    <ul>
+      <li>{{#link ""}}Hello World{{/link}}</li>
+      <li>{{#link "examples/fast-click"}}Fast Click{{/link}}</li>
+      <li>{{#link "examples/tap-highlight"}}Tap Highlight{{/link}}</li>
+    </ul>
+  </div>
+  <div class="flex-content">
+    {{layout tag="div" class="layout"}}
+    <footer></footer>
+  </div>
+</div>

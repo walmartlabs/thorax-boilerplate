@@ -1,0 +1,156 @@
+{
+  "application": {
+    "name": "Application",
+    "module": "base"
+  },
+  "mixins": [
+    "components/lumbar-loader",
+    "components/thorax"
+  ],
+  "modules": {
+    "base": {
+      "mixins": [
+        "thorax-dep-zepto",
+        "thorax",
+        "thorax-helper-tags",
+        "thorax-loading",
+        "thorax-mobile",
+        "lumbar-loader"
+      ],
+      "scripts": [
+        {
+          "src": "components/lumbar-loader/lumbar-loader-backbone.js"
+        },
+        {
+          "src": "js/init.js"
+        },
+        {
+          "src": "js/init-base.js"
+        },
+        {
+          "src": "js/init-behaviors.js"
+        },
+        {
+          "src": "js/model.js"
+        },
+        {
+          "src": "js/collection.js"
+        },
+        {
+          "src": "js/view.js"
+        },
+        {
+          "module-map": true
+        }
+      ],
+      "styles": [
+        {
+          "src": "styles/base.styl"
+        },
+        {
+          "src": "styles/bootstrap.css"
+        },
+        {
+          "src": "styles/bootstrap-responsive.css"
+        },
+        {
+          "src": "styles/loading-indicator.styl"
+        }
+      ],
+      "static": [
+        {
+          "src": "static/index.html",
+          "dest": "index.html"
+        },
+        {
+          "src": "static/img",
+          "dest": "img"
+        }
+      ]
+    },
+    "hello-world": {
+      "routes": {
+        "": "index"
+      },
+      "scripts": [
+        {
+          "src": "js/routers/hello-world.js"
+        },
+        {
+          "src": "js/views/hello-world/index.js"
+        }
+      ],
+      "styles": [
+        {
+          "src": "styles/hello-world.styl"
+        }
+      ]
+    },
+    "examples": {
+      "routes": {
+        "examples/infinite-scroll": "infiniteScroll",
+        "examples/fast-click": "fastClick",
+        "examples/tap-highlight": "tapHighlight"
+      },
+      "scripts": [
+        {
+          "src": "js/routers/examples.js"
+        },
+        {
+          "src": "js/views/examples/fast-click.js"
+        },
+        {
+          "src": "js/views/examples/tap-highlight.js"
+        }
+      ],
+      "styles": [
+        {
+          "src": "styles/examples.styl"
+        }
+      ]
+    }
+  },
+  "templates": {
+    "root": "templates/",
+    "precompile": {
+      "data": true,
+      "knownHelpers": [
+        "view",
+        "template",
+        "super",
+        "element",
+        "collection-element",
+        "collection",
+        "empty",
+        "loading",
+        "url",
+        "link",
+        "button"
+      ]
+    },
+    "auto-include": {
+      "js/views/(.*)\\.(js|coffee)": [
+        "templates/$1.handlebars",
+        "templates/$1-item.handlebars",
+        "templates/$1-empty.handlebars"
+      ]
+    },
+    "js/init.js": [
+      "templates/application.handlebars"
+    ]
+  },
+  "styles": {
+    "pixelDensity": {
+      "android": [ 1, 1.5 ],
+      "iphone": [ 1, 2 ],
+      "web": [ 1, 2 ]
+    },
+    "urlSizeLimit": 1500,
+    "copyFiles": true,
+    "styleRoot": "public",
+    "includes": [
+      "nib",
+      "styles/include/global.styl"
+    ]
+  }
+}
