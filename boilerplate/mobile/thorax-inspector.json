@@ -1,0 +1,8 @@
+{
+  "editor": "subl",
+  "paths": {
+    "views": "./js/views",
+    "models": "./js/models",
+    "collections": "./js/collections"
+  }
+}

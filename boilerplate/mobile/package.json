@@ -9,7 +9,8 @@
   },
   "devDependencies": {
     "portscanner": "0.1.2",
-    "lumbar": "~2.0.0"
+    "lumbar": "~2.0.0",
+    "thorax-inspector": "0.2.2"
   },
   "scripts": {
     "start": "node index.js --watch"

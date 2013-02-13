@@ -34,6 +34,14 @@ var childProcess = require('child_process'),
       });
     }
     
+    var thoraxInspector = spawn('thorax-inspector');
+    thoraxInspector.stdout.on('data', function(data) {
+      process.stdout.write(data.toString());
+    });
+    thoraxInspector.stderr.on('data', function(data) {
+      process.stdout.write(data.toString());
+    });
+    
     var server = express.createServer();
     server.use(express.logger());
     server.use(express.bodyParser());
