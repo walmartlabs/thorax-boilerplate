@@ -2,7 +2,7 @@
   "name": "Application",
   "version": "0.0.1",
   "dependencies": {
-    "express": "2.5.9",
+    "express": "2.5.11",
     "optimist": "0.3.4",
     "underscore": "1.3.3",
     "mkdirp": "0.3.3"
